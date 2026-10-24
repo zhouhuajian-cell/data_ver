@@ -1,0 +1,14 @@
+*.pcap
+*.txt
+__pycache__
+tests/_fault_probe/
+mileage/output/
+data/
+
+# 大文件（字体/PDF/安装包等二进制资源）不推公开仓库，本地保留；
+# 已入库的 simhei.ttf 继续留在内部 GitLab 仓库（供图表使用），GitHub 镜像会自动排除。
+*.ttf
+*.otf
+*.pdf
+*.zip
+*.7z

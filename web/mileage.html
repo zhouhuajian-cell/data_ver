@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAIX-海外数据参数验证及里程分析平台</title>
+<link rel="stylesheet" href="style.css?v=20261023d">
+<link rel="stylesheet" href="mileage.css?v=20261023d">
+</head>
+<body>
+<div class="mileage-page">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A18</div>
+      <div>
+        <h1>MAIX-海外数据参数验证及里程分析平台</h1>
+      </div>
+    </div>
+    <div class="top-actions">
+      <label class="global-region-box" title="按项目/地区全局筛选（影响下面所有列表）">
+        <span>项目</span>
+        <select class="mileage-input history-region" id="globalRegionFilter">
+          <option value="">全部项目</option>
+          <option value="M57项目">M57项目</option>
+          <option value="东南亚地区">东南亚地区</option>
+          <option value="欧洲地区">欧洲地区</option>
+          <option value="独联体地区">独联体地区</option>
+          <option value="南美洲地区">南美洲地区</option>
+        </select>
+      </label>
+      <a class="ghost-button mileage-link" href="index.html" target="_blank" rel="noopener">轨迹分析 ↗</a>
+      <button class="ghost-button" id="resetButton" type="button">清空</button>
+    </div>
+  </header>
+
+  <main class="mileage-main">
+    <!-- 各项目待办：按地区汇总待人工确认的数量 -->
+    <section class="todo-bar" id="todoBar" aria-label="各项目待办">
+      <div class="todo-head">
+        <h3>各项目待办</h3>
+        <button class="ghost-button" id="autoRefreshButton" type="button" title="每 60 秒自动刷新待办与列表">自动刷写：开</button>
+        <button class="ghost-button" id="clearFiltersButton" type="button" title="清空搜索/时间/状态/项目筛选并回到全部数据">清除</button>
+      </div>
+      <div class="todo-cards" id="todoCards"></div>
+    </section>
+
+    <nav class="mileage-tabs" role="tablist" aria-label="分析模式">
+      <button class="mileage-tab is-active" id="tabOverseasDash" type="button" role="tab"
+              aria-selected="true" aria-controls="sheetOverseasDash">海外数据看板</button>
+      <button class="mileage-tab" id="tabSingle" type="button" role="tab"
+              aria-selected="false" aria-controls="sheetSingle">单日里程分析</button>
+      <button class="mileage-tab" id="tabBatch" type="button" role="tab"
+              aria-selected="false" aria-controls="sheetBatch">批量里程分析</button>
+      <button class="mileage-tab" id="tabVerify" type="button" role="tab"
+              aria-selected="false" aria-controls="sheetVerify">单日参数验证</button>
+      <button class="mileage-tab" id="tabBatchVerify" type="button" role="tab"
+              aria-selected="false" aria-controls="sheetBatchVerify">批量参数验证</button>
+    </nav>
+
+    <!-- ===================== 海外数据看板（里程 + 参数验证） ===================== -->
+    <div class="mileage-sheet" id="sheetOverseasDash" role="tabpanel" aria-labelledby="tabOverseasDash">
+      <section class="chart-panel">
+        <div class="chart-head">
+          <div>
+            <h4>海外数据看板</h4>
+          </div>
+          <div class="mileage-run-row">
+            <select class="mileage-input history-region" id="dashTimeFilter" title="按数据采集日期筛选">
+              <option value="">全部时间</option>
+              <option value="this-month">本月</option>
+              <option value="last-month">上月</option>
+              <option value="custom">自定义</option>
+            </select>
+            <input class="mileage-input history-region" id="dashTimeStart" type="date" title="开始日期" hidden>
+            <span class="mileage-subtle" id="dashTimeSep" hidden>~</span>
+            <input class="mileage-input history-region" id="dashTimeEnd" type="date" title="结束日期" hidden>
+            <button class="ghost-button" id="dashRefresh" type="button">刷新</button>
+          </div>
+        </div>
+        <div class="mileage-status" id="dashStatus" role="status" aria-live="polite"></div>
+        <div class="dash-kpi-grid" id="dashKpis"></div>
+        <div class="dash-gauge-grid">
+          <article class="chart-panel dash-gauge-panel">
+            <div class="chart-head"><div><h4>平均有效里程率</h4></div></div>
+            <div class="dash-gauge" id="dashMileageGauge"></div>
+          </article>
+          <article class="chart-panel dash-gauge-panel">
+            <div class="chart-head"><div><h4>参数验证通过率</h4></div></div>
+            <div class="dash-gauge" id="dashVerifyGauge"></div>
+          </article>
+        </div>
+        <div class="chart-grid mileage-grid">
+          <article class="chart-panel wide">
+            <div class="chart-head"><div><h4>里程 · 按项目</h4></div></div>
+            <div class="mileage-table" id="dashMileageTable"></div>
+          </article>
+          <article class="chart-panel wide">
+            <div class="chart-head"><div><h4>参数验证 · 按项目</h4></div></div>
+            <div class="mileage-table" id="dashVerifyTable"></div>
+          </article>
+          <article class="chart-panel wide">
+            <div class="chart-head"><div><h4>里程 · 最近 14 天</h4></div></div>
+            <div class="mileage-table" id="dashMileageTrend"></div>
+          </article>
+          <article class="chart-panel wide">
+            <div class="chart-head"><div><h4>参数验证 · 最近记录</h4></div></div>
+            <div class="mileage-table" id="dashVerifyRecent"></div>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== sheet 1：单日里程分析 ===================== -->
+    <div class="mileage-sheet" id="sheetSingle" role="tabpanel" aria-labelledby="tabSingle" hidden>
+      <section class="chart-panel mileage-run">
+        <div class="chart-head">
+          <div>
+            <h4>单日数据目录</h4>
+          </div>
+        </div>
+        <div class="mileage-run-row">
+          <input class="mileage-input" id="mileageRootInput" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="例如 D:\data\20260917   或   /mnt/logs_new/.../20260917">
+          <button class="primary-button" id="mileageRunButton" type="button">开始分析</button>
+          <button class="ghost-button" id="mileageRefreshButton" type="button" title="忽略数据库缓存，重新解析这份数据">重算</button>
+          <button class="ghost-button" id="exportSingleButton" type="button" disabled>导出 CSV</button>
+        </div>
+        <div class="mileage-status" id="mileageStatus" role="status" aria-live="polite"></div>
+      </section>
+
+      <section id="mileageResult" hidden aria-label="里程分析结果">
+        <!-- 有效里程放在最前面：这是最终要看的口径 -->
+        <div class="mileage-hero">
+          <div class="mileage-hero-main">
+            <div class="mileage-hero-label">有效里程<span>GPS 稳定 ∩ 2M 录制 ∩ 8M 录制（三者全覆盖）</span></div>
+            <div class="mileage-hero-value" id="mileageEffective">—</div>
+            <div class="mileage-hero-sub" id="mileageEffectiveSub">—</div>
+          </div>
+          <div class="mileage-hero-side" id="mileageHeroSide"></div>
+        </div>
+
+        <div class="mileage-cards">
+          <div class="stat">
+            <div class="stat-label">GPS 稳定里程</div>
+            <div class="stat-value" id="mileageGps">—</div>
+            <div class="stat-context">轨迹本身的有效长度</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">2M 覆盖里程</div>
+            <div class="stat-value" id="mileageCover2m">—</div>
+            <div class="stat-context">落在 2M 录制时段内</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">8M 覆盖里程</div>
+            <div class="stat-value" id="mileageCover8m">—</div>
+            <div class="stat-context">落在 8M 录制时段内</div>
+          </div>
+          <div class="stat mileage-stat-strong">
+            <div class="stat-label">任一覆盖里程（2M∪8M）</div>
+            <div class="stat-value" id="mileageAny">—</div>
+            <div class="stat-context">仅供参考，不计入有效里程</div>
+          </div>
+        </div>
+
+        <div class="mileage-meta" id="mileageSecondary"></div>
+
+        <div class="chart-grid mileage-grid">
+          <article class="chart-panel wide">
+            <div class="chart-head">
+              <div>
+                <h4>覆盖里程对比</h4>
+                <small>GPS 稳定 / 2M / 8M / 有效里程（三者交集）/ 任一覆盖（并集）/ 无覆盖，单位 km</small>
+              </div>
+            </div>
+            <canvas id="coverageBarCanvas" aria-label="覆盖里程对比柱状图"></canvas>
+          </article>
+
+          <article class="chart-panel wide">
+            <div class="chart-head">
+              <div>
+                <h4>覆盖时间轴对比</h4>
+                <small>横轴为时间；四条轨道分别是 GPS 稳定段、2M 录制、8M 录制、两者同时录制（全覆盖）</small>
+              </div>
+            </div>
+            <canvas id="coverageTimelineCanvas" aria-label="覆盖时间轴对比图"></canvas>
+            <div class="panel-note" id="coverageTimelineNote">—</div>
+          </article>
+
+          <article class="chart-panel wide">
+            <div class="chart-head">
+              <div>
+                <h4>覆盖明细</h4>
+                <small>2M / 8M 是传感器录制时段：一个设备文件约代表 60 秒；容量与时长只描述录制本身</small>
+              </div>
+            </div>
+            <div class="mileage-table" id="mileageCoverageTable"></div>
+          </article>
+
+          <article class="chart-panel">
+            <div class="chart-head"><div><h4>轨迹摘要</h4><small>来自原项目 GSOF49 解析器</small></div></div>
+            <div id="mileageTrajectory"></div>
+          </article>
+
+          <article class="chart-panel">
+            <div class="chart-head"><div><h4>PCAP 统计</h4><small>本次参与计算的原始抓包</small></div></div>
+            <div id="mileagePcaps"></div>
+            <div class="mileage-alerts is-warning" id="mileageWarnings" hidden></div>
+            <div class="mileage-alerts is-error" id="mileageIssues" hidden></div>
+          </article>
+        </div>
+
+        <p class="panel-note" id="mileageNote">—</p>
+      </section>
+
+      <section class="chart-panel mileage-rules">
+        <div class="chart-head"><div><h4>计算口径</h4></div></div>
+        <ul>
+          <li><strong>GPS 稳定</strong>：GSOF49 的 GNSS 状态 ∈ {SPS, 差分 GPS, PPS, RTK 固定, RTK 浮动}；无定位(0) 与 DR 航位推算(6) 不计入。</li>
+          <li><strong>相邻段异常</strong>：时间戳重复/倒退、间隔 &gt; 5 分钟、跳点（超过 150 km/h 对应距离）的段不计入任何里程。</li>
+          <li><strong>2M / 8M</strong>：传感器只提供「当时是否在录」的时段，本身不产生距离；时段由设备文件名的时间戳推导（一个文件约 60 秒），小于 64 KB 的占位文件不计入。</li>
+          <li><strong>覆盖里程</strong>：取相邻段的时间中点，落在该传感器录制时段内才累计。</li>
+          <li><strong>有效里程</strong> = GPS 稳定 <strong>且</strong> 2M 在录 <strong>且</strong> 8M 在录（三者全覆盖的交集）；<strong>任一覆盖（并集）</strong>只作参考，不计入有效里程。</li>
+          <li>AP18 pcap 没有 baseline 字段，所以 2M/8M 里程完全来自覆盖交集，不来自轨迹里的小基线。</li>
+        </ul>
+      </section>
+
+      <!-- 库中已有结果（放在最下面）：默认每页 10 条，点「载入」还原完整结果 -->
+      <section class="chart-panel" id="historyPanel" aria-label="库中已有结果">
+        <div class="mileage-history-head">
+          <h4>库中已有结果</h4>
+          <span class="mileage-subtle" id="historyStatus">—</span>
+<select class="mileage-input history-region" id="historyTimeFilter" title="按数据采集日期筛选"><option value="">全部时间</option><option value="this-month">本月</option><option value="last-month">上月</option><option value="custom">自定义</option></select>
+          <input class="mileage-input history-region" id="historyTimeStart" type="date" title="开始日期" hidden>
+          <span class="mileage-subtle" id="historyTimeSep" hidden>~</span>
+          <input class="mileage-input history-region" id="historyTimeEnd" type="date" title="结束日期" hidden>
+          <input class="mileage-input history-filter" id="historyQuery" type="text"
+                 autocomplete="off" spellcheck="false" placeholder="筛选日期或路径">
+        </div>
+        <div class="mileage-table" id="historyTable"></div>
+        <div class="mileage-pager" id="historyPager" hidden>
+          <button class="ghost-button" id="historyPrev" type="button">上一页</button>
+          <span class="mileage-subtle" id="historyPageInfo">—</span>
+          <button class="ghost-button" id="historyNext" type="button">下一页</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== sheet 2：批量里程分析 ===================== -->
+    <div class="mileage-sheet" id="sheetBatch" role="tabpanel" aria-labelledby="tabBatch" hidden>
+      <section class="chart-panel mileage-batch" id="mileageBatch" aria-label="批量刷写">
+        <div class="chart-head">
+          <div>
+            <h4>批量里程分析</h4>
+
+          </div>
+        </div>
+        <div class="mileage-run-row">
+          <input class="mileage-input" id="batchRootInput" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="父目录，例如 D:\data   或   /mnt/logs_new/.../202609">
+          <button class="primary-button" id="batchScanButton" type="button">扫描日期</button>
+        </div>
+        <div class="mileage-status" id="batchStatus" role="status" aria-live="polite"></div>
+
+        <div id="batchPick" hidden>
+          <div class="batch-actions">
+            <button class="ghost-button" id="batchSelectReady" type="button">只选未算</button>
+            <button class="ghost-button" id="batchSelectAll" type="button">全选可刷</button>
+            <button class="ghost-button" id="batchSelectNone" type="button">全不选</button>
+            <button class="ghost-button" id="batchInvert" type="button">反选</button>
+            <label class="batch-check"><input type="checkbox" id="batchForceRefresh"> 强制重算（忽略已存结果）</label>
+            <span class="chip" id="batchPickInfo">已选 0 天</span>
+            <button class="primary-button" id="batchRunButton" type="button">开始刷写</button>
+          </div>
+          <div class="mileage-table" id="batchDaysTable"></div>
+        </div>
+
+        <div id="batchResult" hidden>
+          <div class="batch-actions batch-result-head">
+            <h4>刷写结果</h4>
+            <span class="chip" id="batchResultInfo">—</span>
+            <button class="ghost-button" id="batchExportButton" type="button" disabled>导出 CSV</button>
+          </div>
+          <div class="mileage-table" id="batchResultTable"></div>
+          <canvas id="batchBarCanvas" aria-label="批量刷写里程对比图"></canvas>
+          <div class="mileage-alerts is-warning" id="batchWarnings" hidden></div>
+          <div class="mileage-alerts is-error" id="batchIssues" hidden></div>
+        </div>
+      </section>
+
+      <!-- 批量 sheet 的库中已有结果：直接查看/载入历史里程结果 -->
+      <section class="chart-panel" id="batchHistoryPanel" aria-label="库中已有结果">
+        <div class="mileage-history-head">
+          <h4>库中已有结果</h4>
+          <span class="mileage-subtle" id="batchHistoryStatus">—</span>
+          <select class="mileage-input history-region" id="batchHistoryTimeFilter" title="按数据采集日期筛选"><option value="">全部时间</option><option value="this-month">本月</option><option value="last-month">上月</option><option value="custom">自定义</option></select>
+          <input class="mileage-input history-region" id="batchHistoryTimeStart" type="date" title="开始日期" hidden>
+          <span class="mileage-subtle" id="batchHistoryTimeSep" hidden>~</span>
+          <input class="mileage-input history-region" id="batchHistoryTimeEnd" type="date" title="结束日期" hidden>
+          <input class="mileage-input history-filter" id="batchHistoryQuery" type="text"
+                 autocomplete="off" spellcheck="false" placeholder="筛选日期或路径">
+        </div>
+        <div class="mileage-table" id="batchHistoryTable"></div>
+        <div class="mileage-pager" id="batchHistoryPager" hidden>
+          <button class="ghost-button" id="batchHistoryPrev" type="button">上一页</button>
+          <span class="mileage-subtle" id="batchHistoryPageInfo">—</span>
+          <button class="ghost-button" id="batchHistoryNext" type="button">下一页</button>
+        </div>
+      </section>
+    </div>
+
+    <!-- ===================== sheet 3：单日参数验证 ===================== -->
+    <div class="mileage-sheet" id="sheetVerify" role="tabpanel" aria-labelledby="tabVerify" hidden>
+      <section class="chart-panel" id="verifyPanel">
+        <div class="chart-head">
+          <div>
+            <h4>单日参数验证</h4>
+          </div>
+        </div>
+        <div class="mileage-run-row">
+          <input class="mileage-input" id="verifyRootInput" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="例如 /mnt/Data_Platform/.../137501_E5-001_yanzhen_20261001">
+          <button class="primary-button" id="verifyRunButton" type="button">开始验证</button>
+          <button class="ghost-button" id="verifyForceRunButton" type="button" title="忽略数据库缓存，重新跑一遍验证">强制重新分析</button>
+          <button class="ghost-button" id="verifyOverviewButton" type="button">查看/确认交付图</button>
+        </div>
+        <div class="verify-options">
+          <label><input type="checkbox" id="verifyOptQuality" checked> 数据质检</label>
+          <label><input type="checkbox" id="verifyOptProjection" checked> 外参校验 / 反投影</label>
+
+
+
+
+
+          <label>相机过滤 <input type="text" id="verifyOnlyCameras" placeholder="front,front7（可不填）"></label>
+        </div>
+        <div class="mileage-status" id="verifyStatus" role="status" aria-live="polite"></div>
+        <div class="verify-progress" id="verifyProgressWrap" hidden>
+          <div class="verify-progress-bar"><span id="verifyProgressBar"></span></div>
+          <span class="mileage-subtle" id="verifyProgressText">—</span>
+        </div>
+      </section>
+
+      <!-- 参数融合图需人工确认：投影图均匀抽 5 张 + 质检图全展示 -->
+      <section class="chart-panel" id="verifyConfirmPanel" hidden aria-label="参数融合图需人工确认">
+        <div class="chart-head">
+          <div>
+            <h4>参数融合图需人工确认</h4>
+            <div class="confirm-date" id="verifyDataDate" hidden></div>
+          </div>
+          <span class="chip" id="verifyConfirmSummary">—</span>
+          <button class="ghost-button" id="verifyForceRerunButton" type="button" title="当前数据集读不到验证产出时，忽略缓存重新分析">强制重新分析</button>
+          <button class="ghost-button" id="verifyRemoveButton" type="button" hidden title="数据目录已不存在时，移除这条无效的验证记录">移除无效记录</button>
+        </div>
+        <div class="mileage-status" id="verifyConfirmStatus" role="status" aria-live="polite"></div>
+        <div id="verifyConfirmGroups"></div>
+        <div class="batch-actions confirm-nav-row">
+          <button class="ghost-button" id="verifyPrevButton" type="button">上一条</button>
+          <span class="mileage-subtle" id="verifyNavInfo">—</span>
+          <button class="ghost-button" id="verifyNextButton" type="button">下一条</button>
+          <label class="batch-check"><input type="checkbox" id="verifyAutoNext" checked> 评完自动下一条</label>
+        </div>
+      </section>
+
+      <section class="chart-panel" id="verifyHistoryPanel" aria-label="库中已有结果">
+        <div class="mileage-history-head">
+          <h4>库中已有结果</h4>
+          <span class="mileage-subtle" id="verifyHistoryStatus">—</span>
+<select class="mileage-input history-region" id="verifyHistoryTimeFilter" title="按数据采集日期筛选"><option value="">全部时间</option><option value="this-month">本月</option><option value="last-month">上月</option><option value="custom">自定义</option></select>
+          <input class="mileage-input history-region" id="verifyHistoryTimeStart" type="date" title="开始日期" hidden>
+          <span class="mileage-subtle" id="verifyHistoryTimeSep" hidden>~</span>
+          <input class="mileage-input history-region" id="verifyHistoryTimeEnd" type="date" title="结束日期" hidden>
+          <select class="mileage-input history-region" id="verifyHistoryReviewFilter" title="按参数验证结果筛选"><option value="">全部状态</option><option value="passed">验证通过</option><option value="rejected">验证不通过</option><option value="done">已验证</option><option value="pending">未验证</option></select>
+          <input class="mileage-input history-filter" id="verifyHistoryQuery" type="text"
+                 autocomplete="off" spellcheck="false" placeholder="筛选日期或路径">
+        </div>
+        <div class="mileage-table" id="verifyHistoryTable"></div>
+        <div class="mileage-pager" id="verifyHistoryPager" hidden>
+          <button class="ghost-button" id="verifyHistoryPrev" type="button">上一页</button>
+          <span class="mileage-subtle" id="verifyHistoryPageInfo">—</span>
+          <button class="ghost-button" id="verifyHistoryNext" type="button">下一页</button>
+        </div>
+      </section>
+
+
+
+    </div>
+
+    <!-- ===================== sheet 4：批量参数验证 ===================== -->
+    <div class="mileage-sheet" id="sheetBatchVerify" role="tabpanel" aria-labelledby="tabBatchVerify" hidden>
+      <!-- 批量验证：勾选数据集逐个跑 -->
+      <section class="chart-panel" id="verifyBatchPanel" aria-label="批量参数验证">
+        <div class="chart-head">
+          <div>
+            <h4>批量参数验证</h4>
+
+          </div>
+        </div>
+        <div class="mileage-run-row">
+          <input class="mileage-input" id="verifyBatchRootInput" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="父目录，例如 /mnt/Data_Platform/.../E5-001">
+          <button class="primary-button" id="verifyBatchScanButton" type="button">扫描数据集</button>
+        </div>
+        <div class="mileage-status" id="verifyBatchStatus" role="status" aria-live="polite"></div>
+
+        <div id="verifyBatchPick" hidden>
+          <div class="batch-actions">
+            <button class="ghost-button" id="verifyBatchSelectReady" type="button">只选未分析</button>
+            <button class="ghost-button" id="verifyBatchSelectAll" type="button">全选</button>
+            <button class="ghost-button" id="verifyBatchSelectNone" type="button">全不选</button>
+
+
+            <span class="chip" id="verifyBatchPickInfo">已选 0 个</span>
+            <label class="batch-check"><input type="checkbox" id="verifyBatchForce"> 忽略缓存重跑</label>
+            <button class="primary-button" id="verifyBatchRunButton" type="button">开始批量验证</button>
+          </div>
+          <div class="mileage-table" id="verifyBatchTable"></div>
+        </div>
+
+        <div id="verifyBatchResult" hidden>
+          <div class="batch-actions batch-result-head">
+            <h4>批量结果</h4>
+            <span class="chip" id="verifyBatchResultInfo">—</span>
+          </div>
+          <div class="mileage-table" id="verifyBatchResultTable"></div>
+        </div>
+      </section>
+
+      <!-- 批量 sheet 的库中已有结果：不用扫父目录，直接点开确认 -->
+      <section class="chart-panel" id="verifyBatchHistoryPanel" aria-label="库中已有结果">
+        <div class="mileage-history-head">
+          <h4>库中已有结果</h4>
+          <span class="mileage-subtle" id="verifyBatchHistoryStatus">—</span>
+<select class="mileage-input history-region" id="verifyBatchHistoryTimeFilter" title="按数据采集日期筛选"><option value="">全部时间</option><option value="this-month">本月</option><option value="last-month">上月</option><option value="custom">自定义</option></select>
+          <input class="mileage-input history-region" id="verifyBatchHistoryTimeStart" type="date" title="开始日期" hidden>
+          <span class="mileage-subtle" id="verifyBatchHistoryTimeSep" hidden>~</span>
+          <input class="mileage-input history-region" id="verifyBatchHistoryTimeEnd" type="date" title="结束日期" hidden>
+          <select class="mileage-input history-region" id="verifyBatchHistoryReviewFilter" title="按参数验证结果筛选"><option value="">全部状态</option><option value="passed">验证通过</option><option value="rejected">验证不通过</option><option value="done">已验证</option><option value="pending">未验证</option></select>
+          <input class="mileage-input history-filter" id="verifyBatchHistoryQuery" type="text"
+                 autocomplete="off" spellcheck="false" placeholder="筛选日期或路径">
+        </div>
+        <div class="mileage-table" id="verifyBatchHistoryTable"></div>
+        <div class="mileage-pager" id="verifyBatchHistoryPager" hidden>
+          <button class="ghost-button" id="verifyBatchHistoryPrev" type="button">上一页</button>
+          <span class="mileage-subtle" id="verifyBatchHistoryPageInfo">—</span>
+          <button class="ghost-button" id="verifyBatchHistoryNext" type="button">下一页</button>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="mileage_csv.js?v=20261023d"></script>
+<script src="mileage.js?v=20261023d"></script>
+<script src="dashboard.js?v=20261023d"></script>
+<script src="verify.js?v=20261023d"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+[Unit]
+Description=AP18 low effective-mileage ratio alert every 4 hours
+
+[Timer]
+OnBootSec=25min
+OnUnitActiveSec=4h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
