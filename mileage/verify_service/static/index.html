@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>验证服务 · 参数验证 / 里程分析</title>
+<style>
+:root{--bg:#f4f6f8;--panel:#fff;--text:#18212b;--muted:#667481;--line:#dfe5ea;--blue:#276ef1;--green:#16845b;--orange:#d97706;--red:#c43d3d;--ink:#293746}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 "Microsoft YaHei",Arial,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:28px}
+h1{font-size:26px;margin:0 0 4px}
+.sub{color:var(--muted);margin-bottom:20px}
+.tabs{display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.tab{padding:12px 22px;cursor:pointer;border:0;background:transparent;font-size:15px;color:var(--muted);border-bottom:3px solid transparent;font-weight:600}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab small{display:block;font-weight:400;font-size:11px;opacity:.8}
+.panel{display:none} .panel.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(22,31,39,.05)}
+label.f{display:block;color:var(--muted);margin-bottom:6px;font-size:13px}
+input[type=text]{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:8px;font-size:14px;font-family:Consolas,monospace}
+input[type=text]:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(39,110,241,.12)}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.row > div{flex:1;min-width:280px}
+button.run{padding:11px 22px;border:0;border-radius:8px;background:var(--blue);color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+button.run:hover{filter:brightness(1.08)} button.run:disabled{opacity:.5;cursor:not-allowed}
+.hint{color:var(--muted);font-size:12px;margin-top:8px}
+.status{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:600}
+.ok{background:#e6f6ee;color:var(--green)} .bad{background:#fdeaea;color:var(--red)}
+.warn{background:#fff4e0;color:var(--orange)} .info{background:#eef2f5;color:var(--muted)}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13px}
+th{color:var(--muted);font-weight:600;background:#f8fafb}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+pre{background:#f8fafb;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;max-height:320px;font-size:12px;line-height:1.5}
+.bar{height:8px;background:#edf1f4;border-radius:99px;overflow:hidden;margin-top:10px}
+.bar>i{display:block;height:100%;background:var(--blue);width:0;transition:width .3s}
+.verdict{font-size:19px;font-weight:600;margin:6px 0 4px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;margin-top:8px}
+.kv div:nth-child(even){text-align:right;font-variant-numeric:tabular-nums}
+a{color:var(--blue);text-decoration:none} a:hover{text-decoration:underline}
+.good{border-left:4px solid var(--green);background:#f2fbf7;padding:12px 14px;border-radius:6px;margin:10px 0}
+.badbox{border-left:4px solid var(--red);background:#fff5f5;padding:12px 14px;border-radius:6px;margin:10px 0}
+.notebox{border-left:4px solid var(--orange);background:#fff9ed;padding:12px 14px;border-radius:6px;margin:10px 0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{background:#eef2f5;border-radius:99px;padding:3px 10px;font-size:12px}
+.hidden{display:none}
+.big{font-size:30px;font-weight:600}
+.stat-row{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0}
+.stat{flex:1 1 180px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.stat .lb{color:var(--muted);font-size:12px;margin-bottom:4px}
+.stat .vl{font-size:22px;font-weight:600}
+.cov-lane{display:grid;grid-template-columns:80px 1fr 120px;gap:10px;align-items:center;margin:10px 0}
+.track{position:relative;height:24px;background:#edf1f4;border-radius:6px;overflow:hidden}
+.barfill{position:absolute;height:100%;border-radius:6px;display:flex;align-items:center;padding:0 6px;color:#fff;font-size:11px;white-space:nowrap}
+.c2m{background:var(--blue)} .c8m{background:var(--green)} .none{background:#c9d1d8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>里程分析服务</h1>
+  <div class="sub">GPS 覆盖里程 · 2M/8M 里程 · 2M/8M 相机覆盖</div>
+
+  <!-- 参数验证模块已停用，标签与面板保留但隐藏，代码和 API 未删除 -->
+  <div class="tabs" style="display:none">
+    <button class="tab" id="tab-param" onclick="switchTab('param')">参数验证<small>外参/内参 · 数据质检</small></button>
+    <button class="tab active" id="tab-mileage" onclick="switchTab('mileage')">里程分析<small>GPS覆盖里程 · 2M/8M 覆盖</small></button>
+  </div>
+
+  <!-- ================= 参数验证（已隐藏） ================= -->
+  <div class="panel" id="panel-param" style="display:none">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label class="f">数据目录（含 parameter_yaml、cam_*、lidar_*、pose）</label>
+          <input id="param-path" type="text" placeholder="例如：/mnt/Data_Platform/files/.../E5-001_yanzhen_20261001" />
+        </div>
+        <button class="run" id="param-go" onclick="startParam()">开始验证</button>
+      </div>
+      <div class="hint">校验每个相机的内参 + lidar→camera 外参是否齐全，并输出数据质检报告。</div>
+      <div class="bar"><i id="param-bar"></i></div>
+      <div id="param-progress" class="hint"></div>
+    </div>
+    <div id="param-probe" class="card hidden"><h3 style="margin:0 0 8px">目录结构</h3><div id="param-probe-body"></div></div>
+    <div id="param-result" class="hidden">
+      <div class="card"><div id="param-verdict"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">验证明细</h3><div id="param-summary"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">产出文件</h3><div id="param-files"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">执行日志</h3><pre id="param-log"></pre></div>
+    </div>
+  </div>
+
+  <!-- ================= 里程分析 ================= -->
+  <div class="panel active" id="panel-mileage" style="display:block">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label class="f">数据目录（单日目录，或包含多个日期目录的父目录）</label>
+          <input id="mileage-path" type="text" placeholder="例如：/mnt/logs_new/018_LYNK01-001/overseas/Europe/RO 或 …/RO/20260917" />
+        </div>
+        <button class="run" id="mileage-go" onclick="startMileage()">开始分析</button>
+        <button class="run" id="batch-go" onclick="startBatch()" style="background:#16845b">批量刷里程</button>
+      </div>
+      <div class="hint">填单日目录 → 分析这一天；填父目录 → 自动遍历下面的日期目录逐天分析，并出一份汇总报表。</div>
+      <div class="bar"><i id="mileage-bar"></i></div>
+      <div id="mileage-progress" class="hint"></div>
+    </div>
+    <div id="mileage-probe" class="card hidden"><h3 style="margin:0 0 8px">数据构成</h3><div id="mileage-probe-body"></div></div>
+    <div id="batch-result" class="hidden">
+      <div class="card"><div id="batch-summary"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">按天明细</h3><div id="batch-days"></div></div>
+    </div>
+    <div id="mileage-result" class="hidden">
+      <div class="card"><div id="mileage-verdict"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">里程结果</h3><div id="mileage-stats"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">2M / 8M 相机覆盖</h3><div id="mileage-coverage"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">产出文件</h3><div id="mileage-files"></div></div>
+      <div class="card"><h3 style="margin:0 0 10px">执行日志</h3><pre id="mileage-log"></pre></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let currentModule = "param";
+
+function esc(s){ return String(s ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function fmtSize(b){ if(!b) return "0 B"; const u=["B","KB","MB","GB","TB"]; let i=0,n=Number(b); while(n>=1024&&i<u.length-1){n/=1024;i++;} return n.toFixed(1)+" "+u[i]; }
+function fmtDur(s){ s=Number(s)||0; const h=Math.floor(s/3600), m=Math.floor((s%3600)/60); if(h) return h+"h"+m+"m"; if(m) return m+"m"; return Math.round(s)+"s"; }
+function fmtNum(km){ return (Number(km)||0).toFixed(3); }
+
+const PARAM_ENABLED = false;  // 参数验证模块已停用（代码保留）
+
+function switchTab(key){
+  if(key === "param" && !PARAM_ENABLED) return;
+  currentModule = key;
+  document.querySelectorAll(".tab").forEach(el=>el.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach(el=>{
+    el.classList.remove("active");
+    el.style.display = "none";
+  });
+  const tab = $("tab-"+key);
+  if(tab){ tab.classList.add("active"); tab.style.display = ""; }
+  const panel = $("panel-"+key);
+  if(panel){ panel.classList.add("active"); panel.style.display = "block"; }
+  const tabsBar = document.querySelector(".tabs");
+  if(tabsBar) tabsBar.style.display = PARAM_ENABLED ? "" : "none";
+  try{ location.hash = key; }catch(e){}
+}
+
+async function post(url, body){
+  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw {status:r.status, data};
+  return data;
+}
+
+/* ---------------- 参数验证 ---------------- */
+
+function renderParamProbe(info){
+  $("param-probe").classList.remove("hidden");
+  const cams = Object.entries(info.camera_image_counts||{}).map(([k,v])=>`<div class="chip">${esc(k)} · ${v} 张</div>`).join("");
+  const lids = Object.entries(info.lidar_point_counts||{}).map(([k,v])=>`<div class="chip">${esc(k)} · ${v} 帧</div>`).join("");
+  let html = `<div class="kv">
+    <div>parameter_yaml</div><div>${info.parameter_yaml ? "✔ " + esc(info.calib_date_folder||"") : "✘ 缺失"}</div>
+    <div>sensors_used / topic_map</div><div>${info.sensors_yaml && info.topic_map_yaml ? "✔ 齐全" : "✘ 缺失"}</div>
+    <div>FrameMap.json</div><div>${info.frame_map ? "✔ 已存在" : "— 将自动生成"}</div>
+    <div>位姿文件</div><div>${(info.pose_files||[]).length ? esc(info.pose_files[0]) : "— 未找到"}</div>
+    <div>相机</div><div>${(info.cameras||[]).length} 个</div>
+    <div>雷达</div><div>${(info.lidars||[]).length} 个</div>
+  </div>`;
+  if(cams) html += `<div class="chips">${cams}</div>`;
+  if(lids) html += `<div class="chips">${lids}</div>`;
+  if((info.problems||[]).length) html += `<div class="badbox">${info.problems.map(esc).join("<br>")}</div>`;
+  if((info.warnings||[]).length) html += `<div class="notebox">${info.warnings.map(esc).join("<br>")}</div>`;
+  $("param-probe-body").innerHTML = html;
+}
+
+async function startParam(){
+  const path = $("param-path").value.trim();
+  if(!path){ $("param-path").focus(); return; }
+  $("param-go").disabled = true;
+  $("param-result").classList.add("hidden");
+  $("param-progress").textContent = "校验目录结构…";
+  $("param-bar").style.width = "3%";
+
+  let info;
+  try { info = await post("/api/param/probe", {data_root: path}); }
+  catch(e){ $("param-progress").textContent = "无法访问服务"; $("param-go").disabled=false; return; }
+  renderParamProbe(info);
+  if(!info.ready){
+    $("param-progress").innerHTML = `<span class="status bad">目录不可用</span> 请先修正上面列出的问题`;
+    $("param-bar").style.width="0"; $("param-go").disabled=false; return;
+  }
+
+  let task;
+  try { task = await post("/api/param/verify", {data_root: path}); }
+  catch(e){ $("param-progress").innerHTML = `<span class="status bad">提交失败</span>`; $("param-go").disabled=false; return; }
+
+  const id = task.task_id;
+  $("param-progress").textContent = "已提交，验证中…";
+  const poll = setInterval(async () => {
+    try {
+      const p = await fetch(`/api/param/tasks/${id}/progress`).then(r=>r.json());
+      $("param-bar").style.width = (p.percent||5)+"%";
+      const cls = p.status==="failed"?"bad":p.status==="success"?"ok":"info";
+      $("param-progress").innerHTML = `<span class="status ${cls}">${esc(p.status||"")}</span> ${esc(p.step||"")} ${p.message?("— "+esc(p.message)):""}`;
+      if(p.status==="success"||p.status==="failed"){ clearInterval(poll); await showParam(id); $("param-go").disabled=false; }
+    } catch(e){ clearInterval(poll); $("param-go").disabled=false; }
+  }, 900);
+}
+
+async function showParam(id){
+  const r = await fetch(`/api/param/tasks/${id}`).then(x=>x.json());
+  $("param-result").classList.remove("hidden");
+
+  const ok = r.status==="success" && r.summary && r.summary.camera_problem===0;
+  const badge = r.status==="failed"?"bad":ok?"ok":"warn";
+  const label = r.status==="failed"?"执行失败":ok?"通过":"存在异常";
+  let v = `<div class="verdict">${esc(r.verdict||label)} <span class="status ${badge}">${label}</span></div>
+           <div class="hint">耗时 ${r.duration_s ?? "-"} 秒　输出：${esc(r.output_root||"")}</div>`;
+  if((r.issues||[]).length) v += `<div class="badbox">${r.issues.map(esc).join("<br>")}</div>`;
+  if((r.warnings||[]).length) v += `<div class="notebox">提示：${r.warnings.map(esc).join("<br>")}</div>`;
+  if(r.error) v += `<div class="badbox">${esc(r.error)}</div>`;
+  $("param-verdict").innerHTML = v;
+
+  const s = r.summary||{};
+  let sb = "";
+  if(s.camera_total!==undefined){
+    sb += `<div class="kv"><div>相机总数</div><div>${s.camera_total}</div>
+      <div>外参+内参齐全</div><div style="color:var(--green)">${s.camera_ok}</div>
+      <div>存在问题</div><div style="color:${s.camera_problem?'var(--red)':'var(--muted)'}">${s.camera_problem}</div></div>`;
+    if(s.camera_ok_list&&s.camera_ok_list.length) sb += `<div class="chips">${s.camera_ok_list.map(n=>`<span class="chip">✔ ${esc(n)}</span>`).join("")}</div>`;
+    const det = s.camera_problem_detail||{};
+    if(Object.keys(det).length){
+      sb += `<table><thead><tr><th>相机</th><th>状态</th><th>原因</th></tr></thead><tbody>`;
+      for(const [name,d] of Object.entries(det)) sb += `<tr><td>${esc(name)}</td><td><span class="status bad">${esc(d.status)}</span></td><td>${esc(d.reason||"")}</td></tr>`;
+      sb += `</tbody></table>`;
+    }
+  } else sb = `<div class="hint">本次未产生相机级结果</div>`;
+  $("param-summary").innerHTML = sb;
+
+  const files = r.artifacts||[];
+  if(files.length){
+    let fb = `<table><thead><tr><th>文件</th><th class="num">大小</th><th>类型</th><th></th></tr></thead><tbody>`;
+    for(const f of files) fb += `<tr><td>${esc(f.name)}</td><td class="num">${fmtSize(f.size)}</td><td>${esc(f.kind)}</td><td><a href="/api/param/tasks/${id}/download?name=${encodeURIComponent(f.name)}">下载</a></td></tr>`;
+    fb += `</tbody></table>`;
+    $("param-files").innerHTML = fb;
+  } else $("param-files").innerHTML = `<div class="hint">无产出文件</div>`;
+  $("param-log").textContent = (r.log||[]).join("\n") || "（无日志）";
+}
+
+/* ---------------- 里程分析 ---------------- */
+
+function renderMileageProbe(info){
+  $("mileage-probe").classList.remove("hidden");
+  // 服务端会把 Windows 共享路径规范化成服务器挂载路径，这里回显真实路径
+  if(info.data_root) $("mileage-path").value = info.data_root;
+  const traj = (info.trajectory_files||[]).map(f=>`<div class="chip">${esc(f.name)} · ${fmtSize(f.size)}</div>`).join("");
+  const pcaps = (info.pcap_dirs||[]).map(d=>`<div class="chip">${esc(d.folder)} · ${d.files} 个 pcap · ${fmtSize(d.bytes)}</div>`).join("");
+  const m2 = info.device_2m||{}, m8 = info.device_8m||{};
+  let html = `<div class="kv">
+    <div>实际路径</div><div>${esc(info.data_root||"")}</div>
+    <div>轨迹文件</div><div>${(info.trajectory_files||[]).length} 个${(info.pcap_files||[]).length?`（另有 ${info.pcap_files.length} 个 pcap）`:""}</div>
+    <div>2M 数据</div><div>${m2.files?`${m2.files} 个文件 · ${fmtSize(m2.bytes)}`:"✘ 未识别到"}</div>
+    <div>8M 数据</div><div>${m8.files?`${m8.files} 个文件 · ${fmtSize(m8.bytes)}`:"✘ 未识别到"}</div>
+  </div>`;
+  if(traj) html += `<div class="chips">${traj}</div>`;
+  if(pcaps) html += `<div class="chips">${pcaps}</div>`;
+  if((m2.folders||[]).length||(m8.folders||[]).length) html += `<div class="hint">识别到的 2M 目录：${esc((m2.folders||[]).join(", ")||"—")}<br>识别到的 8M 目录：${esc((m8.folders||[]).join(", ")||"—")}</div>`;
+  if((info.other_folders||[]).length) html += `<div class="hint">其他目录（不参与里程）：${esc(info.other_folders.slice(0,10).join(", "))}</div>`;
+  if((info.problems||[]).length) html += `<div class="badbox">${info.problems.map(esc).join("<br>")}</div>`;
+  if((info.warnings||[]).length) html += `<div class="notebox">${info.warnings.map(esc).join("<br>")}</div>`;
+  $("mileage-probe-body").innerHTML = html;
+}
+
+async function startMileage(){
+  const path = $("mileage-path").value.trim();
+  if(!path){ $("mileage-path").focus(); return; }
+  $("mileage-go").disabled = true;
+  $("mileage-result").classList.add("hidden");
+  $("mileage-progress").textContent = "校验目录结构…";
+  $("mileage-bar").style.width = "3%";
+
+  let info;
+  try { info = await post("/api/mileage/probe", {data_root: path}); }
+  catch(e){ $("mileage-progress").textContent = "无法访问服务"; $("mileage-go").disabled=false; return; }
+  renderMileageProbe(info);
+  if(!info.ready){
+    $("mileage-progress").innerHTML = `<span class="status bad">目录不可用</span> 请先修正上面列出的问题`;
+    $("mileage-bar").style.width="0"; $("mileage-go").disabled=false; return;
+  }
+
+  let task;
+  try { task = await post("/api/mileage/analyze", {data_root: path}); }
+  catch(e){ $("mileage-progress").innerHTML = `<span class="status bad">提交失败</span>`; $("mileage-go").disabled=false; return; }
+
+  const id = task.task_id;
+  $("mileage-progress").textContent = "已提交，分析中…";
+  const poll = setInterval(async () => {
+    try {
+      const p = await fetch(`/api/mileage/tasks/${id}/progress`).then(r=>r.json());
+      $("mileage-bar").style.width = (p.percent||5)+"%";
+      const cls = p.status==="failed"?"bad":p.status==="success"?"ok":"info";
+      $("mileage-progress").innerHTML = `<span class="status ${cls}">${esc(p.status||"")}</span> ${esc(p.step||"")} ${p.message?("— "+esc(p.message)):""}`;
+      if(p.status==="success"||p.status==="failed"){ clearInterval(poll); await showMileage(id); $("mileage-go").disabled=false; }
+    } catch(e){ clearInterval(poll); $("mileage-go").disabled=false; }
+  }, 900);
+}
+
+async function showMileage(id){
+  const r = await fetch(`/api/mileage/tasks/${id}`).then(x=>x.json());
+  $("mileage-result").classList.remove("hidden");
+
+  const ok = r.status==="success" && (r.issues||[]).length===0;
+  const badge = r.status==="failed"?"bad":ok?"ok":"warn";
+  const label = r.status==="failed"?"执行失败":ok?"通过":"存在异常";
+  let v = `<div class="verdict">${esc(r.verdict||label)} <span class="status ${badge}">${label}</span></div>
+           <div class="hint">耗时 ${r.duration_s ?? "-"} 秒　输出：${esc(r.output_root||"")}</div>`;
+  if((r.issues||[]).length) v += `<div class="badbox">${r.issues.map(esc).join("<br>")}</div>`;
+  if((r.warnings||[]).length) v += `<div class="notebox">提示：${r.warnings.map(esc).join("<br>")}</div>`;
+  if(r.error) v += `<div class="badbox">${esc(r.error)}</div>`;
+  $("mileage-verdict").innerHTML = v;
+
+  $("mileage-stats").innerHTML = `<div class="stat-row">
+    <div class="stat"><div class="lb">实际有效里程</div><div class="vl" style="color:var(--green)">${fmtNum(r.effective_distance_m/1000)} km</div><div class="hint">占 GPS 覆盖里程 ${(r.ratio||0).toFixed(2)}%</div></div>
+    <div class="stat"><div class="lb">GPS 覆盖里程</div><div class="vl">${fmtNum(r.gps_stable_distance_m/1000)} km</div></div>
+    <div class="stat"><div class="lb">全部轨迹长度</div><div class="vl">${fmtNum(r.total_distance_m/1000)} km</div></div>
+  </div>
+  <div class="kv">
+    <div>GPS 覆盖且 2M 在录</div><div>${fmtNum((r.distance_2m_covered_m||0)/1000)} km</div>
+    <div>GPS 覆盖且 8M 在录</div><div>${fmtNum((r.distance_8m_covered_m||0)/1000)} km</div>
+    <div>2M/8M 同时在录</div><div>${fmtNum((r.distance_both_covered_m||0)/1000)} km</div>
+    <div>GPS 覆盖但无相机数据</div><div>${fmtNum((r.distance_no_cover_m||0)/1000)} km</div>
+    <div>轨迹点数 / 行程数</div><div>${r.point_count||0} / ${r.trip_count||0}</div>
+  </div>
+  <div class="hint" style="margin-top:8px">实际有效里程 = 该段 GPS 覆盖 <b>且</b> 当时 2M 或 8M 相机正在录制 的里程。</div>`;
+
+  function covLane(name, cov, cls){
+    const present = cov && cov.present;
+    const pct = present ? 100 : 0;
+    const start = present ? (cov.start||"—") : "无数据";
+    const end = present ? (cov.end||"—") : "";
+    const info = present ? `${cov.file_count} 文件 · ${fmtSize(cov.total_bytes)} · ${fmtDur(cov.duration_s)}` : "未检测到数据";
+    return `<div class="cov-lane">
+      <strong>${name}</strong>
+      <div class="track"><div class="barfill ${present?cls:"none"}" style="left:0;width:${Math.max(pct,8)}%">${present?"已覆盖":"无"}</div></div>
+      <span class="hint">${esc(info)}</span>
+    </div>
+    <div class="hint" style="margin:-4px 0 8px 90px">${esc(start)} → ${esc(end)}</div>`;
+  }
+  $("mileage-coverage").innerHTML =
+    covLane("2M", r.coverage_2m||{}, "c2m") + covLane("8M", r.coverage_8m||{}, "c8m");
+
+  const files = r.artifacts||[];
+  if(files.length){
+    let fb = "";
+    for(const f of files){
+      const href = `/api/mileage/tasks/${id}/download?name=${encodeURIComponent(f.name)}`;
+      fb += `<div class="notebox" style="border-left-color:var(--blue);background:#f2f7ff">
+        <strong>${esc(f.name)}</strong> <span class="hint">${fmtSize(f.size)}</span><br>
+        <a href="${href}" target="_blank">在新窗口查看完整报告</a> 　
+        <a href="${href}" download>下载 HTML</a>
+      </div>`;
+    }
+    $("mileage-files").innerHTML = fb;
+  } else $("mileage-files").innerHTML = `<div class="hint">无产出文件</div>`;
+  $("mileage-log").textContent = (r.log||[]).join("\n") || "（无日志）";
+}
+
+/* ---------------- 批量刷里程 ---------------- */
+let batchDays = [];
+let batchRoot = "";
+
+async function startBatch(){
+  const path = $("mileage-path").value.trim();
+  if(!path){ $("mileage-path").focus(); return; }
+  $("batch-go").disabled = true; $("mileage-go").disabled = true;
+  $("batch-result").classList.add("hidden");
+  $("mileage-result").classList.add("hidden");
+  $("mileage-progress").textContent = "扫描日期目录…";
+  $("mileage-bar").style.width = "3%";
+
+  let info;
+  try { info = await post("/api/batch/discover", {root: path}, 300000); }
+  catch(e){
+    $("mileage-progress").innerHTML = `<span class="status bad">扫描失败</span> ${esc(e.data && e.data.detail ? (e.data.detail.message||JSON.stringify(e.data.detail)) : "")}`;
+    $("batch-go").disabled=false; $("mileage-go").disabled=false; return;
+  }
+
+  batchDays = info.days || [];
+  batchRoot = info.root;
+  $("mileage-bar").style.width = "0";
+  $("mileage-progress").innerHTML = `扫描完成：共 ${info.count} 个日期目录，其中 ${info.analyzable_count} 个可分析。请勾选要刷的日期。`;
+  renderBatchPicker();
+  $("batch-go").disabled=false; $("mileage-go").disabled=false;
+}
+
+function renderBatchPicker(){
+  $("mileage-probe").classList.remove("hidden");
+  const rows = batchDays.map((d,i)=>{
+    const dis = d.analyzable ? "" : "disabled";
+    const tip = d.analyzable
+      ? `${d.trajectory_files} 轨迹 / ${d.pcap_files} pcap · 2M ${d.device_2m_files} · 8M ${d.device_8m_files}`
+      : d.reason;
+    const c2 = d.coverage_2m ? '<span class="status ok">有</span>' : '<span class="status bad">无</span>';
+    const c8 = d.coverage_8m ? '<span class="status ok">有</span>' : '<span class="status bad">无</span>';
+    return `<tr>
+      <td><input type="checkbox" class="day-chk" data-name="${esc(d.name)}" ${d.analyzable?"checked":""} ${dis}></td>
+      <td>${esc(d.name)}</td>
+      <td>${d.analyzable?'<span class="status ok">可分析</span>':'<span class="status warn">跳过</span>'}</td>
+      <td class="num">${d.trajectory_files||0}</td>
+      <td class="num">${d.pcap_files||0}</td>
+      <td class="num">${d.device_2m_files||0}</td><td>${c2}</td>
+      <td class="num">${d.device_8m_files||0}</td><td>${c8}</td>
+      <td class="hint">${esc(tip)}</td>
+    </tr>`;
+  }).join("");
+
+  $("mileage-probe-body").innerHTML = `
+    <div class="kv"><div>父目录</div><div>${esc(batchRoot)}</div>
+      <div>日期目录</div><div>${batchDays.length} 个</div></div>
+    <div style="margin:12px 0">
+      <button class="run" onclick="selectAllDays(true)" style="padding:6px 14px;font-size:13px">全选</button>
+      <button class="run" onclick="selectAllDays(false)" style="padding:6px 14px;font-size:13px;background:#88939e">全不选</button>
+      <button class="run" onclick="invertDays()" style="padding:6px 14px;font-size:13px;background:#88939e">反选</button>
+      <button class="run" onclick="runSelectedBatch()" id="batch-run-selected" style="padding:6px 18px;font-size:13px;background:#16845b">开始刷选中的日期</button>
+      <span class="hint" id="batch-sel-count" style="margin-left:8px"></span>
+    </div>
+    <table><thead><tr>
+      <th style="width:34px"><input type="checkbox" id="chk-all" onclick="selectAllDays(this.checked)"></th>
+      <th>日期</th><th>状态</th><th class="num">轨迹</th><th class="num">pcap</th>
+      <th class="num">2M文件</th><th>2M</th><th class="num">8M文件</th><th>8M</th><th>说明</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+
+  document.querySelectorAll(".day-chk").forEach(el=>el.addEventListener("change", updateSelCount));
+  updateSelCount();
+}
+
+function selectAllDays(on){
+  document.querySelectorAll(".day-chk").forEach(el=>{ if(!el.disabled) el.checked = on; });
+  const all = $("chk-all"); if(all) all.checked = on;
+  updateSelCount();
+}
+function invertDays(){
+  document.querySelectorAll(".day-chk").forEach(el=>{ if(!el.disabled) el.checked = !el.checked; });
+  updateSelCount();
+}
+function updateSelCount(){
+  const sel = [...document.querySelectorAll(".day-chk")].filter(e=>e.checked).map(e=>e.dataset.name);
+  window.__selectedDays = sel;
+  const t = $("batch-sel-count");
+  if(t) t.textContent = `已选 ${sel.length} 天`;
+  const btn = $("batch-run-selected");
+  if(btn) btn.disabled = sel.length === 0;
+}
+
+async function runSelectedBatch(){
+  const sel = window.__selectedDays || [];
+  if(!sel.length) return;
+  await execBatch(batchRoot, sel);
+}
+
+async function startBatchAll(){
+  await execBatch(batchRoot, null);
+}
+
+async function execBatch(root, selected){
+  const runBtn = $("batch-run-selected");
+  const topBtn = $("batch-go");
+  if(runBtn) runBtn.disabled = true;
+  topBtn.disabled = true; $("mileage-go").disabled = true;
+  $("batch-result").classList.add("hidden");
+  $("mileage-result").classList.add("hidden");
+  $("mileage-progress").textContent = selected ? `提交 ${selected.length} 天…` : "提交全部分析…";
+  $("mileage-bar").style.width = "5%";
+
+  let task;
+  try { task = await post("/api/batch/analyze", {root: root, selected: selected}, 600000); }
+  catch(e){
+    const msg = e.data && e.data.detail ? (e.data.detail.message || JSON.stringify(e.data.detail)) : "提交失败";
+    $("mileage-progress").innerHTML = `<span class="status bad">提交失败</span> ${esc(msg)}`;
+    if(runBtn) runBtn.disabled=false; topBtn.disabled=false; $("mileage-go").disabled=false; return;
+  }
+
+  const id = task.task_id;
+  $("mileage-progress").textContent = `已提交 ${task.days_selected} 天，分析中…`;
+  const poll = setInterval(async () => {
+    try {
+      const p = await fetch(`/api/batch/tasks/${id}/progress`).then(r=>r.json());
+      $("mileage-bar").style.width = (p.percent||5)+"%";
+      const cls = p.status==="failed"?"bad":p.status==="success"?"ok":"info";
+      $("mileage-progress").innerHTML = `<span class="status ${cls}">${esc(p.status||"")}</span> ${esc(p.step||"")} ${p.message?("— "+esc(p.message)):""}`;
+      if(p.status==="success"||p.status==="failed"){
+        clearInterval(poll); await showBatch(id);
+        if(runBtn) runBtn.disabled=false; topBtn.disabled=false; $("mileage-go").disabled=false;
+      }
+    } catch(e){ clearInterval(poll); if(runBtn) runBtn.disabled=false; topBtn.disabled=false; $("mileage-go").disabled=false; }
+  }, 1500);
+}
+
+async function showBatch(id){
+  const r = await fetch(`/api/batch/tasks/${id}`).then(x=>x.json());
+  $("batch-result").classList.remove("hidden");
+
+  const km = v => (Number(v||0)/1000).toFixed(3);
+  const ratio = r.total_gps_stable_m ? (r.total_effective_m/r.total_gps_stable_m*100) : 0;
+
+  $("batch-summary").innerHTML = `
+    <div class="stat-row">
+      <div class="stat"><div class="lb">实际有效里程合计</div><div class="vl" style="color:var(--green)">${km(r.total_effective_m)} km</div><div class="hint">占 GPS 覆盖 ${ratio.toFixed(2)}%</div></div>
+      <div class="stat"><div class="lb">GPS 覆盖里程合计</div><div class="vl">${km(r.total_gps_stable_m)} km</div></div>
+      <div class="stat"><div class="lb">全部轨迹长度</div><div class="vl">${km(r.total_distance_m)} km</div></div>
+      <div class="stat"><div class="lb">目录数</div><div class="vl">${r.total_days}</div><div class="hint">完成 ${r.ok_days}　失败 ${r.failed_days}　跳过 ${r.skipped_days}</div></div>
+    </div>
+    <div class="hint">耗时 ${r.duration_s} 秒　汇总：<a href="/batch/report/${id}" target="_blank">打开完整汇总报表</a>　
+      <a href="/api/batch/tasks/${id}/download?name=batch_summary.html" download>下载 HTML</a></div>`;
+
+  let rows = "";
+  for(const d of (r.days||[])){
+    const st = d.skipped ? '<span class="status warn">跳过</span>'
+              : d.status==="failed" ? '<span class="status bad">失败</span>'
+              : (d.effective_distance_m>0 ? '<span class="status ok">完成</span>' : '<span class="status warn">无有效里程</span>');
+    const c2 = d.coverage_2m_present ? '<span class="status ok">有</span>' : '<span class="status bad">无</span>';
+    const c8 = d.coverage_8m_present ? '<span class="status ok">有</span>' : '<span class="status bad">无</span>';
+    rows += `<tr><td>${esc(d.name)}</td><td>${st}</td>
+      <td class="num">${km(d.total_distance_m)}</td>
+      <td class="num">${km(d.gps_stable_distance_m)}</td>
+      <td class="num"><b>${km(d.effective_distance_m)}</b></td>
+      <td class="num">${(d.ratio||0).toFixed(2)}%</td>
+      <td class="num">${d.point_count||0}</td>
+      <td class="num">${d.coverage_2m_files||0}</td><td>${c2}</td>
+      <td class="num">${d.coverage_8m_files||0}</td><td>${c8}</td>
+      <td class="hint">${esc((d.verdict||"").slice(0,50))}</td></tr>`;
+  }
+  $("batch-days").innerHTML = `<table><thead><tr>
+    <th>日期</th><th>状态</th><th class="num">轨迹(km)</th><th class="num">GPS覆盖(km)</th>
+    <th class="num">实际有效(km)</th><th class="num">有效率</th><th class="num">轨迹点</th>
+    <th class="num">2M文件</th><th>2M</th><th class="num">8M文件</th><th>8M</th><th>说明</th>
+  </tr></thead><tbody>${rows || '<tr><td colspan="12" class="hint">无数据</td></tr>'}</tbody></table>`;
+}
+
+/* ---------------- 启动 ---------------- */
+document.addEventListener("DOMContentLoaded", () => {
+  $("mileage-path").addEventListener("keydown", e=>{ if(e.key==="Enter") startMileage(); });
+  const paramPath = $("param-path");
+  if(paramPath) paramPath.addEventListener("keydown", e=>{ if(e.key==="Enter" && PARAM_ENABLED) startParam(); });
+
+  // 参数验证停用后，页面固定进入里程分析
+  switchTab("mileage");
+
+  const boot = window.__BOOT__ || {};
+  if(boot.__TASK_ID__ && boot.__MODULE__ === "mileage"){
+    fetch(`/api/mileage/tasks/${boot.__TASK_ID__}`).then(r=>r.ok?r.json():Promise.reject())
+      .then(task=>{
+        if(task.data_root) $("mileage-path").value = task.data_root;
+        $("mileage-progress").innerHTML = `<span class="status ${task.status==='success'?'ok':'bad'}">${esc(task.status)}</span> ${esc(task.verdict||"")}`;
+        $("mileage-bar").style.width="100%";
+        return showMileage(boot.__TASK_ID__);
+      }).catch(()=>{ $("mileage-progress").textContent="无法加载该任务结果"; });
+  } else if(boot.__TASK_ID__ && boot.__MODULE__ === "param" && PARAM_ENABLED){
+    fetch(`/api/param/tasks/${boot.__TASK_ID__}`).then(r=>r.ok?r.json():Promise.reject())
+      .then(task=>{
+        if(task.dataset&&task.dataset.data_root) $("param-path").value = task.dataset.data_root;
+        renderParamProbe(task.dataset||{});
+        $("param-progress").innerHTML = `<span class="status ${task.status==='success'?'ok':'bad'}">${esc(task.status)}</span> ${esc(task.verdict||"")}`;
+        $("param-bar").style.width="100%";
+        return showParam(boot.__TASK_ID__);
+      }).catch(()=>{ $("param-progress").textContent="无法加载该任务结果"; });
+  }
+});
+</script>
+</body>
+</html>
