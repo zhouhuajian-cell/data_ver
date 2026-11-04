@@ -1,0 +1,9 @@
+[Unit]
+Description=AP18 todo summary to Feishu (10/15/19)
+
+[Timer]
+OnCalendar=*-*-* 10,15,19:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

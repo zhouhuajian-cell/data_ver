@@ -1,0 +1,13 @@
+[Unit]
+Description=AP18 CIFS mount watchdog (auto remount + Feishu alert)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/home/algo/pcap-analyse
+ExecStart=/home/algo/miniconda3/envs/multi_traj/bin/python tools/mount_watchdog.py
+Nice=5
+TimeoutStartSec=120

@@ -1,0 +1,10 @@
+[Unit]
+Description=AP18 auto verify scan every 1 hour
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

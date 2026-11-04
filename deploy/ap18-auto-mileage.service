@@ -1,0 +1,16 @@
+[Unit]
+Description=AP18 auto mileage scan (configured roots)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=algo
+Group=algo
+WorkingDirectory=/home/algo/pcap-analyse
+Environment=AP18_MILEAGE_DB=/home/algo/ap18_data/mileage.db
+ExecStart=/home/algo/miniconda3/envs/multi_traj/bin/python tools/auto_mileage_scan.py --limit 20
+Nice=10
+TimeoutStartSec=0
+StandardOutput=append:/home/algo/pcap-analyse/logs/auto_mileage.log
+StandardError=append:/home/algo/pcap-analyse/logs/auto_mileage.log

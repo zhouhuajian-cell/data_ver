@@ -1,0 +1,9 @@
+[Unit]
+Description=AP18 auto mileage scan every 24 hours
+
+[Timer]
+OnCalendar=*-*-* 20:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

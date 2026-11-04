@@ -1,0 +1,32 @@
+# AP18 可视化 + 有效里程 systemd 服务示例（Linux 服务器部署用）。
+#
+# 用法：
+#   sudo cp deploy/ap18-visualizer.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ap18-visualizer
+#   systemctl status ap18-visualizer
+#   journalctl -u ap18-visualizer -f
+#
+# 按实际部署路径 / 用户 / 端口改下面三处：
+#   WorkingDirectory、User、--port
+
+[Unit]
+Description=AP18 Visualizer (trace analysis + effective mileage)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=algo
+Group=algo
+WorkingDirectory=/home/algo/pcap-analyse
+# 只允许本机访问时把 --host 改成 127.0.0.1；
+# 不需要有效里程接口时追加 --no-mileage。
+ExecStart=/usr/bin/env python3 ap18_visualizer.py --host 0.0.0.0 --port 8901
+Restart=on-failure
+RestartSec=3
+# 里程分析会解码大量 pcap，给足文件句柄
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

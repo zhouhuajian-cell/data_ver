@@ -1,0 +1,15 @@
+[Unit]
+Description=AP18 Feishu retry queue (every 5 minutes)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=algo
+Group=algo
+WorkingDirectory=/home/algo/pcap-analyse
+Environment=AP18_MILEAGE_DB=/home/algo/ap18_data/mileage.db
+ExecStart=/home/algo/miniconda3/envs/multi_traj/bin/python tools/flush_feishu_queue.py
+Nice=10
+StandardOutput=append:/home/algo/pcap-analyse/logs/feishu_retry.log
+StandardError=append:/home/algo/pcap-analyse/logs/feishu_retry.log

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AP18 LVX 数据分析</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">A18</div><div><h1>AP18 LVX 数据分析</h1><small>GSOF 49 / 50 INS 记录</small></div></div>
+    <div class="top-status" id="topStatus">正在连接数据源…</div>
+    <div class="top-actions"><button class="ghost-button" id="openMileageButton" type="button">有效里程</button><button class="ghost-button" id="reloadButton" type="button">清空并刷新</button></div>
+  </header>
+  <div class="workspace">
+    <aside class="sidebar">
+      <p class="side-label">当前数据文件</p>
+      <select class="file-select" id="fileSelect" aria-label="选择数据文件"></select>
+      <div class="file-meta" id="fileMeta">—</div>
+      <p class="side-label">从前端导入 PCAP</p>
+      <div class="pcap-picker">
+        <div class="pcap-picker-actions">
+          <button class="ghost-button" id="pickPcapFiles" type="button">选择多个文件</button>
+          <button class="ghost-button" id="pickPcapFolder" type="button">选择文件夹</button>
+        </div>
+        <input id="pcapFilesInput" type="file" accept=".pcap,.pacp,application/vnd.tcpdump.pcap" multiple hidden>
+        <input id="pcapFolderInput" type="file" accept=".pcap,.pacp,application/vnd.tcpdump.pcap" webkitdirectory directory multiple hidden>
+        <div class="pcap-picker-status" id="pcapPickerStatus" aria-live="polite">选择文件或文件夹后会自动开始加载并分析。</div>
+        <div class="pcap-progress" id="pcapProgress" hidden><div class="pcap-progress-bar" id="pcapProgressBar"></div></div>
+      </div>
+      <div class="side-divider"></div>
+      <p class="side-label">分析视图</p>
+      <nav class="nav" aria-label="页面导航">
+        <button class="active" type="button" data-target="overview">总览</button>
+        <button type="button" data-target="trajectory">轨迹与位置</button>
+        <button type="button" data-target="motion">运动与姿态</button>
+        <button type="button" data-target="accuracy">RMS 与原始数据</button>
+      </nav>
+      <p class="side-label">轨迹显示选择</p>
+      <div class="file-selection-meta" id="fileSelectionMeta">—</div>
+      <div class="file-list" id="fileList"></div>
+    </aside>
+    <main class="main" id="overview">
+      <div class="main-head">
+        <div><h2>数据总览</h2><p id="datasetCaption">—</p></div>
+        <div class="main-actions"><button class="primary-button" id="downloadButton" type="button">下载当前 TXT</button></div>
+      </div>
+      <div class="notice" id="notice" role="alert"></div>
+      <section class="summary-grid" aria-label="数据摘要">
+        <div class="stat"><div class="stat-label">导航记录</div><div class="stat-value" id="statRows">—</div><div class="stat-context" id="statRowsContext">GSOF49</div></div>
+        <div class="stat"><div class="stat-label">时间跨度</div><div class="stat-value" id="statDuration">—</div><div class="stat-context" id="statTime">—</div></div>
+        <div class="stat"><div class="stat-label">纬度范围</div><div class="stat-value" id="statLat">—</div><div class="stat-context">deg</div></div>
+        <div class="stat"><div class="stat-label">经度范围</div><div class="stat-value" id="statLon">—</div><div class="stat-context">deg</div></div>
+        <div class="stat"><div class="stat-label">高程范围</div><div class="stat-value" id="statAlt">—</div><div class="stat-context">m</div></div>
+        <div class="stat"><div class="stat-label">总速度峰值</div><div class="stat-value" id="statSpeed">—</div><div class="stat-context">m/s</div></div>
+        <div class="stat"><div class="stat-label">搜星数（用于定位）</div><div class="stat-value" id="statSatellites">—</div><div class="stat-context" id="statSatellitesContext">GSOF1 / GGA</div></div>
+        <div class="stat"><div class="stat-label">差分龄期</div><div class="stat-value" id="statDiffAge">—</div><div class="stat-context" id="statDiffAgeContext">GGA</div></div>
+      </section>
+      <section class="toolbar" aria-label="图表控制">
+        <div class="toolbar-group"><span class="subtle" id="samplingInfo">—</span></div>
+        <div class="toolbar-group selection-bar" id="selectionBar" hidden aria-live="polite"><label>选点指示</label><span class="chip" id="selectionChip"></span><button type="button" class="selection-clear" id="clearSelectionButton">取消选中</button></div>
+      </section>
+
+      <section id="trajectory">
+        <div class="section-heading"><h3>轨迹与位置</h3><span class="subtle">前端选中的 PCAP 文件夹会自动刷新；每个文件独立绘制，不跨文件连线</span></div>
+        <div class="chart-grid">
+          <article class="chart-panel wide"><div class="chart-head"><div><h4>轨迹地图</h4><small>直接使用原始 WGS84 经纬度，不做中国坐标偏移转换</small></div><div class="map-head-actions"><div class="layer-switch" id="mapLayerSwitch" role="group" aria-label="地图底图"><button type="button" class="active" data-layer="street">街道图</button><button type="button" data-layer="sat">卫星图</button></div><div class="legend" id="legend-map">彩色=选中 · 灰色=未选中</div></div></div><div id="leafletMap" role="img" aria-label="轨迹地图"></div><div class="map-note" id="mapStatus">地图底图按当前视野加载；首次打开需要网络连接。</div></article>
+          <article class="chart-panel wide"><div class="chart-head"><div><h4>局部平面轨迹</h4><small>以平均位置为原点，东向 / 北向，单位 m</small></div><div class="legend" id="legend-trajectory"></div></div><canvas id="trajectoryCanvas" aria-label="局部平面轨迹图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>纬度与经度</h4><small>地理坐标，单位 deg</small></div><div class="legend" id="legend-position"></div></div><canvas id="positionCanvas" aria-label="纬度经度时间序列图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>高程</h4><small>Altitude，单位 m</small></div><div class="legend" id="legend-altitude"></div></div><canvas id="altitudeCanvas" aria-label="高程时间序列图"></canvas></article>
+        </div>
+      </section>
+
+      <section id="motion">
+        <div class="section-heading"><h3>运动与姿态</h3><span class="subtle">GSOF49 INS Integrated Navigation Solution</span></div>
+        <div class="chart-grid">
+          <article class="chart-panel"><div class="chart-head"><div><h4>速度</h4><small>North / East / Down / Total，单位 m/s</small></div><div class="legend" id="legend-velocity"></div></div><canvas id="velocityCanvas" aria-label="速度时间序列图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>姿态</h4><small>Roll / Pitch / Heading / Track，单位 deg</small></div><div class="legend" id="legend-attitude"></div></div><canvas id="attitudeCanvas" aria-label="姿态时间序列图"></canvas></article>
+          <article class="chart-panel wide"><div class="chart-head"><div><h4>角速度与加速度</h4><small>IMU body frame，角速度 deg/s，加速度 m/s²</small></div><div class="legend" id="legend-inertial"></div></div><canvas id="inertialCanvas" aria-label="角速度和加速度时间序列图"></canvas></article>
+        </div>
+      </section>
+
+      <section id="accuracy">
+        <div class="section-heading"><h3>RMS 与原始数据</h3><span class="subtle">位置/速度/姿态 RMS 是散点图（每个采样点一个点，不连线：没发送 GSOF50 的那一段直接没有点）；搜星数与差分龄期来自 NMEA GGA（无 GGA 时断开）；超限比例只统计运动帧（车速 &gt; 5 km/h）：超过 0.1 m / 0.05 m 的帧数 ÷ 运动帧数</span></div>
+        <div class="chart-grid rms-grid">
+          <article class="chart-panel wide"><div class="chart-head"><div><h4>位置 RMS</h4><small>North / East / Down，单位 m；散点 = 每个采样点一个点，不做连线</small></div><div class="legend" id="legend-rms-position"></div></div><canvas id="rmsPositionCanvas" aria-label="位置 RMS 时间序列图"></canvas></article>
+          <article class="chart-panel wide"><div class="chart-head"><div><h4>位置 RMS 超限比例</h4><small>只统计<strong>运动帧</strong>：分子 = 车速 &gt; 5 km/h 且超过阈值的帧数，分母 = 车速 &gt; 5 km/h 且有位置 RMS 的帧数（静止/低速帧、未附带 GSOF50 的帧都不计入）</small></div></div><div id="rmsExceedTable"></div><div class="panel-note" id="rmsExceedNote">—</div></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>速度 RMS</h4><small>North / East / Down，单位 m/s；散点不连线</small></div><div class="legend" id="legend-rms-velocity"></div></div><canvas id="rmsVelocityCanvas" aria-label="速度 RMS 时间序列图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>姿态 RMS</h4><small>Roll / Pitch / Heading，单位 deg；散点不连线</small></div><div class="legend" id="legend-rms-attitude"></div></div><canvas id="rmsAttitudeCanvas" aria-label="姿态 RMS 时间序列图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>搜星数</h4><small>GSOF1 优先、GGA 回退，单位 颗</small></div><div class="legend" id="legend-satellites"></div></div><canvas id="satellitesCanvas" aria-label="用于定位的卫星数时间序列图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>差分龄期</h4><small>GGA 差分改正龄期，单位 s；无差分或未输出时断开</small></div><div class="legend" id="legend-differential"></div></div><canvas id="differentialCanvas" aria-label="差分龄期时间序列图"></canvas></article>
+          <article class="chart-panel"><div class="chart-head"><div><h4>HDOP</h4><small>水平精度因子，纯卫星几何分布量；越小越好（≤1 优）</small></div><div class="legend" id="legend-hdop"></div></div><canvas id="hdopCanvas" aria-label="HDOP 时间序列图"></canvas></article>
+        </div>
+        <div class="analysis-strip"><div class="info-panel"><h4>IMU 对准状态</h4><div class="chips" id="imuChips"></div></div><div class="info-panel"><h4>GNSS 状态</h4><div class="chips" id="gnssChips"></div></div><div class="info-panel"><h4>搜星评估</h4><div class="chips" id="satelliteChips"></div></div><div class="info-panel"><h4>差分龄期评估</h4><div class="chips" id="differentialChips"></div></div><div class="info-panel"><h4>HDOP 评估（卫星几何）</h4><div class="chips" id="hdopChips"></div></div></div>
+        <div class="section-heading"><h3>原始记录表</h3><span class="subtle">全部字段，可搜索和分页；点击某一行后，所有曲线图在该记录时刻画出指示线，地图与轨迹标出该点位置（再次点击或点空白处取消）</span></div>
+        <div class="table-toolbar"><input class="search" id="tableSearch" type="search" placeholder="搜索时间、状态或数值…" aria-label="搜索原始记录"><div class="pagination"><button type="button" id="prevPage">上一页</button><span id="pageInfo">—</span><button type="button" id="nextPage">下一页</button></div></div>
+        <div class="table-wrap"><table id="rawTable"><thead></thead><tbody></tbody></table><div class="empty" id="tableEmpty" hidden>没有匹配记录</div></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="zoom-overlay" id="zoomOverlay" hidden>
+  <div class="zoom-box" role="dialog" aria-modal="true" aria-label="放大查看图表">
+    <div class="zoom-head"><h4 id="zoomTitle">—</h4><button type="button" class="zoom-close" id="zoomClose">关闭 ✕</button></div>
+    <div class="zoom-body" id="zoomBody"></div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="app.js"></script>
+</body>
+</html>
